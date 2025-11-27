@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import api from '../api/axios';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { useChatStore } from './chat';
 
 export const useAuthStore = defineStore('auth', () => {
     const user = ref(null);
@@ -17,7 +18,13 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = null;
         token.value = null;
         localStorage.removeItem('auth_token');
-        window.location.href = '/login'; // Forzar recarga limpia
+
+        // 2. Limpiar el estado del chat (historial y conversación)
+        const chatStore = useChatStore();
+        chatStore.resetSession();
+
+        // 3. Redirigir
+        router.push('/login');
     };
 
     const login = async (email, password) => {
@@ -42,5 +49,19 @@ export const useAuthStore = defineStore('auth', () => {
         }
     };
 
-    return { user, token, login, register, logout };
+    const checkToken = async () => {
+        if (!token.value) return false;
+        
+        try {
+            const { data } = await api.get('/auth/check-status');
+            user.value = data;
+            if(data.token) setToken(data.token); 
+            return true;
+        } catch (error) {
+            logout();
+            return false;
+        }
+    };
+
+    return { user, token, login, register, logout, checkToken };
 });
